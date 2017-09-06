@@ -1,0 +1,2 @@
+2017-09-05 23:49:34 ERROR [nmoura]: permission denied. require_root must be executed as superuser.
+2017-09-05 23:49:36 INFO [nmoura.root]: Ok, you're root!

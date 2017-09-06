@@ -1,0 +1,206 @@
+#!/bin/bash
+#
+# useful_functions.sh
+#
+# Nilton Moura <https://nmoura.github.io>
+#
+# ----------------------------------------------------------------------------
+#
+# Useful functions
+#
+# This file contains some useful functions that I developed to:
+#
+#   . Standardize log - logger() function;
+#   . Parsing of configuration file - parser() and parser_section_items()
+#       functions;
+#   . Stop script execution if the user who ran a script is not root -
+#       require_root() function.
+#   . Define some useful variables, like username and basename - 
+#       define_username() and define_basename() functions.
+#
+# Before each function you can read a brief description.
+#
+# ----------------------------------------------------------------------------
+#
+
+#
+# define_basename()
+#
+# Prerequisites: none
+# Returns: nothing
+# Sets: $basename variable
+#
+# Sets a $basename variable with the base name (without dot) of the executed
+# script.
+#
+# Usage:
+#
+#   define_basename
+#
+define_basename(){
+  basename=$(basename $0 | cut -d '.' -f 1)
+}
+
+#
+# define_username()
+#
+# Prerequisites: none
+# Prints: nothing
+# Sets: $username variable
+#
+# Sets a $username variable based in the user name from who called a script.
+# If $UID of the user is equal to '0' (superuser), adds '.root' to $username.
+#
+# Usage:
+#
+#   define_username
+#
+define_username(){
+  unset username
+  username="$(who -m | cut -d ' ' -f 1)"
+  if test -z "$username" ; then
+    username=$(whoami)
+  fi
+  if [ "$UID" == '0' ] ; then
+    username="$username".root
+  fi
+}
+
+#
+# logger()
+#
+# Prerequisites: $username variable defined (can be configured calling
+#   define_username function) and $log_file variable defined
+# Returns: echoes a standardized log message
+# Sets: nothing
+#
+# Sends a log message to standard output and to a file. The first param
+# should be the type code and the second param should be the whole message
+# in quotes.
+#
+# Type codes:
+#
+#   0 = INFO
+#   1 = WARN
+#   2 = ERROR
+#
+# Usage examples:
+#
+#   Example 1:
+#     Invocation:
+#       logger 0 "executed with success"
+#     Output:
+#       2015-12-30 13:30:30 INFO [nilton]: executed with success
+#
+#   Example 2:
+#     Invocation:
+#       logger 2 "command not found"
+#     Output:
+#       2015-12-30 13:30:45 ERROR [nilton]: command not found
+#
+#   Example 3:
+#     If logger() function is invoked with an unknown code type, the log
+#     message will be written and showed with the number type informed.
+#
+#     Invocation:
+#       logger 5 "problem to change a register"
+#     Output:
+#       2015-12-30 13:31:00 5 [nilton]: problem to change a register
+#
+logger() {
+  if [ $1 == '0' ] ; then
+    type=INFO
+  elif [ $1 == '1' ] ; then
+    type=WARN
+  elif [ $1 == '2' ] ; then
+    type=ERROR
+  else
+    type=$1
+  fi
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $type [$username]: $2" | tee -a "$log_file"
+}
+
+#
+# parser()
+#
+# Prerequisites: $conf_file variable
+# Returns: echoes the wanted key
+# Sets: nothing
+#
+# Parser to return a key value from a configuration file. It receives two
+# parameters. The first one is the section and the second is the key of
+# the section.
+#
+# Usage example:
+#
+#   Suppose your configuration file contains this:
+#
+#     [dns_lists]                # this is the section
+#     jboss   = jboss-list.txt   # this is a key/value pair
+#     apache  = apache-list.txt
+#     jenkins = jenkins-list.txt
+#
+#   If you want to know 'jboss' key value, invoke parser() function in this
+#   way:
+#
+#     parser dns_lists jboss
+#
+#   The value 'jboss-list.txt' will be returned.
+#
+parser(){
+  echo $(sed -e '/./{H;$!d;}' -e 'x;/\['$1'\]/b' -e d "$conf_file" \
+| egrep \("^$2 ="\|"^$2="\) | cut -d '=' -f 2 | tr -d \" | tr -d \')
+}
+
+#
+# parser_section_items()
+#
+# Prerequisites: $conf_file variable
+# Returns: echoes the wanted items
+# Sets: nothing
+#
+# Parser to return a list of keys from a section of a configuration
+# file. It receives the section of the file as the unique parameter.
+#
+# Usage example:
+#
+#   A configuration file containing this:
+#
+#     [dns_lists]                # this is the section
+#     jboss   = jboss-list.txt   # this is a key/value pair
+#     apache  = apache-list.txt
+#     jenkins = jenkins-list.txt
+#
+#   You need to know the items of the dns_lists section, so you invoke
+#   parser_section_items() function in this way:
+#
+#     parser_section_items dns_lists
+#
+#   It will return 'jboss', 'apache' and 'jenkins'.
+#
+parser_section_items(){
+  echo $(sed -e '/./{H;$!d;}' -e 'x;/\['$1'\]/b' -e d "$conf_file" \
+| grep '=' | cut -d ' ' -f 1)
+}
+
+#
+# require_root()
+#
+# Prerequisites: logger() function loaded and $basename variable defined (can
+#   be defined callineg define_basename() function).
+# Returns: echoes an error message if the user has not superuser privileges
+# Sets: nothing
+#
+# Stops execution if the user ID of who ran a script is different from '0'.
+#
+# Usage:
+#
+#   require_root
+#
+require_root(){
+  if [ "$UID" != '0' ] ; then
+    logger 2 "permission denied. $basename must be executed as superuser."
+     exit_status=2
+     exit $exit_status
+  fi
+}
