@@ -70,13 +70,14 @@ define_username(){
 # logger()
 #
 # Prerequisites: $username variable defined (can be configured calling
-#   define_username function) and $log_file variable defined
+#   define_username function) and $log_file variable defined, but if
+#   $log_file is not defined, just send the message to standard output
 # Returns: echoes a standardized log message
 # Sets: nothing
 #
-# Sends a log message to standard output and to a file. The first param
-# should be the type code and the second param should be the whole message
-# in quotes.
+# Sends a log message to standard output and to a file (if $logger_on_file
+# is true). The first param should be the type code and the second param
+# should be the whole message in quotes.
 #
 # Type codes:
 #
@@ -117,7 +118,11 @@ logger() {
   else
     type=$1
   fi
-  echo "$(date '+%Y-%m-%d %H:%M:%S') $type [$username]: $2" | tee -a "$log_file"
+  if [ ! -z $log_file ] && [ -w $log_file ] ; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $type [$username]: $2" | tee -a "$log_file"
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $type [$username]: $2"
+  fi
 }
 
 #
